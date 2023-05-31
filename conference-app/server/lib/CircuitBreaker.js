@@ -1,3 +1,4 @@
+/* eslint-disable semi-spacing */
 const axios = require("axios");
 
 class CircuitBreaker {
@@ -6,6 +7,24 @@ class CircuitBreaker {
         this.failureThreshold = 5;
         this.cooldownPeriod = 10;
         this.requestTimeout = 1;
+    }
+
+    async callService(requestOptions) {
+        const endpoint = `${requestOptions.method}:${requestOptions.url}`;
+
+        if (!this.canRequest(endpoint)) return false;
+
+        requestOptions.timeout = this.requestTimeout * 1000;
+
+        try {
+            const response = await axios(requestOptions);
+            this.onSuccess(endpoint);
+            return response.data;
+        } catch (error) {
+            this.onFailure(endpoint);
+            return false;
+        }
+
     }
 
     onSuccess(endpoint) {
@@ -23,6 +42,7 @@ class CircuitBreaker {
     }
 
     canRequest(endpoint) {
+        if (!this.states[endpoint]) this.initState(endpoint);
         const state = this.states[endpoint];
         if (state.circuit === 'CLOSED') return true;
         const now = new Date() / 1000;
